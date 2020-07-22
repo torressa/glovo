@@ -18,7 +18,7 @@ def sample_pymc(s, slot_objects_list):
         np.random.uniform(0, 1) :: probability associated with scenario s.'''
     y = [float(slot.demand) for slot in slot_objects_list]
     size = len(y)
-    x = range(0, size)
+    x = range(size)
     with pm.Model() as model:
         nu = pm.Exponential('nu', 1/10., testval=5.)
         sigma = pm.Exponential('sigma', 1/0.02, testval=.1)
