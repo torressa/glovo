@@ -47,19 +47,28 @@ def create_variables(model, scenario_dict):
 
 def set_objective(model, scenario_dict):
     # dummy variables to linearize objective function
-    durations = {(g, slot.i_d, s): time_to_int(slot.end_t - slot.start_t)
-                 for s in range(0, len(scenario_dict))
-                 for g in range(0, scenario_dict[s]['glovers'])
-                 for slot in scenario_dict[s]['slots']}
+    durations = {
+        (g, slot.i_d, s): time_to_int(slot.end_t - slot.start_t)
+        for s in range(len(scenario_dict))
+        for g in range(scenario_dict[s]['glovers'])
+        for slot in scenario_dict[s]['slots']
+    }
+
     model.ModelSense = gb.GRB.MINIMIZE
     model.NumObj = 2
-    obj1 = gb.quicksum(scenario_dict[s]['prob']*e[slot.i_d, s]
-                       for s in range(0, len(scenario_dict))
-                       for slot in scenario_dict[s]['slots'])
-    obj2 = gb.quicksum(scenario_dict[s]['prob']*x[g, slot.i_d, s]
-                       for s in range(0, len(scenario_dict))
-                       for g in range(0, scenario_dict[s]['glovers'])
-                       for slot in scenario_dict[s]['slots'])
+    obj1 = gb.quicksum(
+        scenario_dict[s]['prob'] * e[slot.i_d, s]
+        for s in range(len(scenario_dict))
+        for slot in scenario_dict[s]['slots']
+    )
+
+    obj2 = gb.quicksum(
+        scenario_dict[s]['prob'] * x[g, slot.i_d, s]
+        for s in range(0, len(scenario_dict))
+        for g in range(scenario_dict[s]['glovers'])
+        for slot in scenario_dict[s]['slots']
+    )
+
     model.setObjectiveN(obj1, 0, 3)
     model.setObjectiveN(obj2, 1, 2)
     #################################################
@@ -84,29 +93,41 @@ def add_constraints(model, scenario_dict):
     from math import floor
     M = 1e5  # Big M constraint
     # Demand #
-    model.addConstrs((x.sum('*', slot.i_d, s) + e[slot.i_d, s]
-                      >= floor(slot.demand)
-                      for s in range(0, len(scenario_dict))
-                      for slot in scenario_dict[s]['slots']),
-                     name='Demand(4)')
+    model.addConstrs(
+        (
+            x.sum('*', slot.i_d, s) + e[slot.i_d, s] >= floor(slot.demand)
+            for s in range(len(scenario_dict))
+            for slot in scenario_dict[s]['slots']
+        ),
+        name='Demand(4)',
+    )
+
     # Glovers Leaving #
-    model.addConstrs((Z[g, slot.i_d, s] >= slot.leave
-                      for s in range(0, len(scenario_dict))
-                      for g in range(0, scenario_dict[s]['glovers'])
-                      for slot in scenario_dict[s]['slots']),
-                     name='Leaving(6)')
-    model.addConstrs((x[g, slot_d.i_d, s] <= 1 - x[g, slot.i_d, s]
-                      for s in range(0, len(scenario_dict))
-                      for g in range(0, scenario_dict[s]['glovers'])
-                      for slot in scenario_dict[s]['slots']
-                      for slot_d in scenario_dict[s]['slots']
-                      if slot.start_t < slot_d.start_t < slot.end_t))
-    for s in range(0, len(scenario_dict)):
-        for g in range(0, scenario_dict[s]['glovers']):
+    model.addConstrs(
+        (
+            Z[g, slot.i_d, s] >= slot.leave
+            for s in range(len(scenario_dict))
+            for g in range(scenario_dict[s]['glovers'])
+            for slot in scenario_dict[s]['slots']
+        ),
+        name='Leaving(6)',
+    )
+
+    model.addConstrs(
+        x[g, slot_d.i_d, s] <= 1 - x[g, slot.i_d, s]
+        for s in range(len(scenario_dict))
+        for g in range(scenario_dict[s]['glovers'])
+        for slot in scenario_dict[s]['slots']
+        for slot_d in scenario_dict[s]['slots']
+        if slot.start_t < slot_d.start_t < slot.end_t
+    )
+
+    for s in range(len(scenario_dict)):
+        for g in range(scenario_dict[s]['glovers']):
             for slot in scenario_dict[s]['slots']:
                 slots_after = [_ for _ in scenario_dict[s]['slots']
                                if slot.end_t <= _.start_t]
-                if len(slots_after) > 0:
+                if slots_after:
                     model.addConstr(x[g, slots_after[0].i_d, s]
                                     <= 1 - Z[g, slot.i_d, s])
     #################################################
